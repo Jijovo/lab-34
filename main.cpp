@@ -7,14 +7,13 @@
 #include <set>
 #include <iomanip>
 #include <algorithm>
+#include <climits>
 
 using namespace std;
 
 class CityRoutePlanner {
 private:
-    // adjacency list: vertex -> list of (neighbor, fuel_consumption)
-    map<int, vector<pair<int, int>>> adj;
-    // map vertex ID to descriptive name
+    map<int, vector<pair<int, int>>> adj;          // fuel consumption in liters
     map<int, string> locationName;
 
 public:
@@ -144,6 +143,71 @@ public:
             cout << endl;
         }
     }
+
+    // Step 4: Dijkstra's algorithm for shortest path (minimum fuel consumption)
+    void shortestPaths(int start) {
+        map<int, int> dist;          // distance (fuel) from start to each vertex
+        map<int, int> prev;          // previous vertex in optimal path
+        set<int> unvisited;
+
+        // Initialize distances: INF for all, 0 for start
+        for (const auto& entry : adj) {
+            int v = entry.first;
+            dist[v] = INT_MAX;
+            unvisited.insert(v);
+        }
+        dist[start] = 0;
+        prev[start] = -1;
+
+        while (!unvisited.empty()) {
+            // Find vertex with smallest distance
+            int u = -1;
+            int minDist = INT_MAX;
+            for (int v : unvisited) {
+                if (dist[v] < minDist) {
+                    minDist = dist[v];
+                    u = v;
+                }
+            }
+            if (u == -1) break; // no more reachable nodes
+            unvisited.erase(u);
+
+            // Relax edges from u
+            for (const auto& neighbor : adj[u]) {
+                int v = neighbor.first;
+                int weight = neighbor.second;
+                if (unvisited.find(v) != unvisited.end()) { // still unprocessed
+                    int newDist = dist[u] + weight;
+                    if (newDist < dist[v]) {
+                        dist[v] = newDist;
+                        prev[v] = u;
+                    }
+                }
+            }
+        }
+
+        // Print results
+        cout << "\n=== SHORTEST PATHS (Minimum Fuel Consumption) from " << locationName[start] << " ===\n";
+        cout << "Using Dijkstra's algorithm (all weights positive).\n\n";
+        for (const auto& entry : adj) {
+            int v = entry.first;
+            if (dist[v] == INT_MAX) {
+                cout << locationName[start] << " -> " << locationName[v] << " : NOT REACHABLE\n";
+            } else {
+                // Reconstruct path
+                vector<int> path;
+                int cur = v;
+                while (cur != -1) {
+                    path.push_back(cur);
+                    cur = prev[cur];
+                }
+                reverse(path.begin(), path.end());
+                cout << locationName[start] << " -> " << locationName[v] << " : " << dist[v] << " L, path: ";
+                for (int node : path) cout << locationName[node] << " ";
+                cout << endl;
+            }
+        }
+    }
 };
 
 int main() {
@@ -187,11 +251,14 @@ int main() {
     // Display the network
     planner.displayNetwork();
 
-    // Run DFS from City Center (vertex 0) – explore all possible routes with fuel tracking
+    // Run DFS from City Center (vertex 0)
     planner.dfsWithFuel(0);
 
-    // Run BFS from City Center – find routes with fewest road segments, then compute fuel cost
+    // Run BFS from City Center – fewest road segments
     planner.bfsMinHops(0);
+
+    // Step 4: Shortest paths (minimum fuel) using Dijkstra
+    planner.shortestPaths(0);
 
     return 0;
 }
