@@ -13,7 +13,7 @@ using namespace std;
 
 class CityRoutePlanner {
 private:
-    map<int, vector<pair<int, int>>> adj;          // fuel consumption in liters
+    map<int, vector<pair<int, int>>> adj;
     map<int, string> locationName;
 
 public:
@@ -40,10 +40,9 @@ public:
         }
     }
 
-    // DFS: explore all possible routes, accumulating fuel cost
     void dfsWithFuel(int start) {
         set<int> visited;
-        stack<pair<int, int>> st; // (vertex, accumulated fuel from start)
+        stack<pair<int, int>> st;
         vector<int> order;
         map<int, int> fuelFromStart;
 
@@ -63,7 +62,6 @@ public:
                     cout << " - Total fuel used so far: " << accFuel << " L";
                 cout << endl;
 
-                // Push neighbors in reverse order to maintain natural order in output
                 vector<pair<int, int>> neighbors = adj[v];
                 for (auto it = neighbors.rbegin(); it != neighbors.rend(); ++it) {
                     int n = it->first;
@@ -82,12 +80,11 @@ public:
         cout << endl;
     }
 
-    // BFS: find the route with the fewest road segments (ignoring fuel), then compute its fuel cost
     void bfsMinHops(int start) {
         set<int> visited;
         queue<int> q;
-        map<int, int> parent;   // to reconstruct path
-        map<int, int> hops;     // number of hops from start
+        map<int, int> parent;
+        map<int, int> hops;
 
         visited.insert(start);
         q.push(start);
@@ -113,12 +110,10 @@ public:
             }
         }
 
-        // Show the hop‑distance and actual fuel consumption for each destination
         cout << "\n=== ROUTE SUMMARY (Minimal hops from " << locationName[start] << ") ===\n";
         for (const auto& entry : adj) {
             int dest = entry.first;
             if (dest == start) continue;
-            // reconstruct path
             vector<int> path;
             int cur = dest;
             while (cur != -1) {
@@ -126,7 +121,6 @@ public:
                 cur = parent[cur];
             }
             reverse(path.begin(), path.end());
-            // compute total fuel along the path
             int totalFuel = 0;
             for (size_t i = 0; i < path.size() - 1; ++i) {
                 int u = path[i], v = path[i+1];
@@ -144,13 +138,11 @@ public:
         }
     }
 
-    // Dijkstra's algorithm for shortest path (minimum fuel consumption)
     void shortestPaths(int start) {
-        map<int, int> dist;          // distance (fuel) from start to each vertex
-        map<int, int> prev;          // previous vertex in optimal path
+        map<int, int> dist;
+        map<int, int> prev;
         set<int> unvisited;
 
-        // Initialize distances: INF for all, 0 for start
         for (const auto& entry : adj) {
             int v = entry.first;
             dist[v] = INT_MAX;
@@ -160,7 +152,6 @@ public:
         prev[start] = -1;
 
         while (!unvisited.empty()) {
-            // Find vertex with smallest distance
             int u = -1;
             int minDist = INT_MAX;
             for (int v : unvisited) {
@@ -169,14 +160,13 @@ public:
                     u = v;
                 }
             }
-            if (u == -1) break; // no more reachable nodes
+            if (u == -1) break;
             unvisited.erase(u);
 
-            // Relax edges from u
             for (const auto& neighbor : adj[u]) {
                 int v = neighbor.first;
                 int weight = neighbor.second;
-                if (unvisited.find(v) != unvisited.end()) { // still unprocessed
+                if (unvisited.find(v) != unvisited.end()) {
                     int newDist = dist[u] + weight;
                     if (newDist < dist[v]) {
                         dist[v] = newDist;
@@ -186,15 +176,13 @@ public:
             }
         }
 
-        // Print results
         cout << "\n=== SHORTEST PATHS (Minimum Fuel Consumption) from " << locationName[start] << " ===\n";
-        cout << "Using Dijkstra's algorithm (all weights positive).\n\n";
+        cout << "Using Dijkstra's algorithm.\n\n";
         for (const auto& entry : adj) {
             int v = entry.first;
             if (dist[v] == INT_MAX) {
                 cout << locationName[start] << " -> " << locationName[v] << " : NOT REACHABLE\n";
             } else {
-                // Reconstruct path
                 vector<int> path;
                 int cur = v;
                 while (cur != -1) {
@@ -209,15 +197,12 @@ public:
         }
     }
 
-    // Step 5: Minimum Spanning Tree using Prim's algorithm
     void minimumSpanningTree(int start) {
         set<int> inMST;
-        // For each vertex not yet in MST, store the minimum edge weight connecting it to the MST
-        map<int, int> minEdgeWeight;    // weight of the cheapest edge from vertex to current MST
-        map<int, int> parent;           // the vertex in MST that gives this min edge
+        map<int, int> minEdgeWeight;
+        map<int, int> parent;
         set<int> notInMST;
 
-        // Initialize
         for (const auto& entry : adj) {
             int v = entry.first;
             notInMST.insert(v);
@@ -226,8 +211,10 @@ public:
         }
         minEdgeWeight[start] = 0;
 
+        cout << "\n=== MINIMUM SPANNING TREE (Prim's algorithm) ===\n";
+        cout << "Edges in MST (fuel consumption as weight):\n";
+
         while (!notInMST.empty()) {
-            // Find vertex u with smallest minEdgeWeight among those not in MST
             int u = -1;
             int minW = INT_MAX;
             for (int v : notInMST) {
@@ -236,20 +223,15 @@ public:
                     u = v;
                 }
             }
-            if (u == -1) break; // disconnected components remain (not possible in our connected graph)
+            if (u == -1) break;
 
             notInMST.erase(u);
             inMST.insert(u);
 
-            // Add edge from parent[u] to u (if not start) to MST
             if (parent[u] != -1) {
-                // For output, ensure edge representation is clear.
-                // We'll store edges and print later.
-                // However, we can print immediately.
                 cout << "Edge from " << parent[u] << " to " << u << " with weight: " << minEdgeWeight[u] << " units\n";
             }
 
-            // Update minEdgeWeight for neighbors of u
             for (const auto& neighbor : adj[u]) {
                 int v = neighbor.first;
                 int w = neighbor.second;
@@ -265,9 +247,7 @@ public:
 int main() {
     CityRoutePlanner planner;
 
-    // ---------- Build the exact graph from Step 2 ----------
-    // vertices: 0,1,2,4,5,7,8,9,10,11,12   (3 and 6 deleted, 6 new added)
-    // edges with fuel weights (liters)
+    // Build the graph (same as Steps 2-5)
     planner.addEdge(0, 1, 5);
     planner.addEdge(0, 2, 10);
     planner.addEdge(0, 4, 15);
@@ -287,7 +267,6 @@ int main() {
     planner.addEdge(11, 12, 17);
     planner.addEdge(9, 12, 18);
 
-    // Assign descriptive names (city landmarks)
     planner.setLocationName(0, "City Center");
     planner.setLocationName(1, "North District");
     planner.setLocationName(2, "East District");
@@ -300,22 +279,44 @@ int main() {
     planner.setLocationName(11, "General Hospital");
     planner.setLocationName(12, "University Campus");
 
-    // Display the network
-    planner.displayNetwork();
+    //step 6, add menu
+    int choice;
+    do {
+        cout << endl << "========================================" << endl;
+        cout << "   CITY ROUTE PLANNER MENU" << endl;
+        cout << "========================================" << endl;
+        cout << "[1] Display network (adjacency list)" << endl;
+        cout << "[2] Plan inspection route (DFS from City Center)" << endl;
+        cout << "[3] Find minimal hop routes (BFS from City Center)" << endl;
+        cout << "[4] Calculate shortest paths by fuel (Dijkstra)" << endl;
+        cout << "[5] Find Minimum Spanning Tree (Prim)" << endl;
+        cout << "[0] Exit" << endl;
+        cout << "Enter your choice: ";
+        cin >> choice;
 
-    // Run DFS from City Center (vertex 0)
-    planner.dfsWithFuel(0);
-
-    // Run BFS from City Center – fewest road segments
-    planner.bfsMinHops(0);
-
-    // Step 4: Shortest paths (minimum fuel) using Dijkstra
-    planner.shortestPaths(0);
-
-    // Step 5: Minimum Spanning Tree using Prim's algorithm
-    cout << "\n=== MINIMUM SPANNING TREE (MST) using Prim's algorithm ===\n";
-    cout << "Edges in MST (fuel consumption as weight):\n";
-    planner.minimumSpanningTree(0);
+        switch(choice) {
+            case 1:
+                planner.displayNetwork();
+                break;
+            case 2:
+                planner.dfsWithFuel(0);
+                break;
+            case 3:
+                planner.bfsMinHops(0);
+                break;
+            case 4:
+                planner.shortestPaths(0);
+                break;
+            case 5:
+                planner.minimumSpanningTree(0);
+                break;
+            case 0:
+                cout << "Exiting program." << endl;
+                break;
+            default:
+                cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 0);
 
     return 0;
 }
