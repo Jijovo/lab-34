@@ -144,7 +144,7 @@ public:
         }
     }
 
-    // Step 4: Dijkstra's algorithm for shortest path (minimum fuel consumption)
+    // Dijkstra's algorithm for shortest path (minimum fuel consumption)
     void shortestPaths(int start) {
         map<int, int> dist;          // distance (fuel) from start to each vertex
         map<int, int> prev;          // previous vertex in optimal path
@@ -208,6 +208,58 @@ public:
             }
         }
     }
+
+    // Step 5: Minimum Spanning Tree using Prim's algorithm
+    void minimumSpanningTree(int start) {
+        set<int> inMST;
+        // For each vertex not yet in MST, store the minimum edge weight connecting it to the MST
+        map<int, int> minEdgeWeight;    // weight of the cheapest edge from vertex to current MST
+        map<int, int> parent;           // the vertex in MST that gives this min edge
+        set<int> notInMST;
+
+        // Initialize
+        for (const auto& entry : adj) {
+            int v = entry.first;
+            notInMST.insert(v);
+            minEdgeWeight[v] = INT_MAX;
+            parent[v] = -1;
+        }
+        minEdgeWeight[start] = 0;
+
+        while (!notInMST.empty()) {
+            // Find vertex u with smallest minEdgeWeight among those not in MST
+            int u = -1;
+            int minW = INT_MAX;
+            for (int v : notInMST) {
+                if (minEdgeWeight[v] < minW) {
+                    minW = minEdgeWeight[v];
+                    u = v;
+                }
+            }
+            if (u == -1) break; // disconnected components remain (not possible in our connected graph)
+
+            notInMST.erase(u);
+            inMST.insert(u);
+
+            // Add edge from parent[u] to u (if not start) to MST
+            if (parent[u] != -1) {
+                // For output, ensure edge representation is clear.
+                // We'll store edges and print later.
+                // However, we can print immediately.
+                cout << "Edge from " << parent[u] << " to " << u << " with weight: " << minEdgeWeight[u] << " units\n";
+            }
+
+            // Update minEdgeWeight for neighbors of u
+            for (const auto& neighbor : adj[u]) {
+                int v = neighbor.first;
+                int w = neighbor.second;
+                if (inMST.find(v) == inMST.end() && w < minEdgeWeight[v]) {
+                    minEdgeWeight[v] = w;
+                    parent[v] = u;
+                }
+            }
+        }
+    }
 };
 
 int main() {
@@ -259,6 +311,11 @@ int main() {
 
     // Step 4: Shortest paths (minimum fuel) using Dijkstra
     planner.shortestPaths(0);
+
+    // Step 5: Minimum Spanning Tree using Prim's algorithm
+    cout << "\n=== MINIMUM SPANNING TREE (MST) using Prim's algorithm ===\n";
+    cout << "Edges in MST (fuel consumption as weight):\n";
+    planner.minimumSpanningTree(0);
 
     return 0;
 }
