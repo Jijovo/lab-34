@@ -5,127 +5,193 @@
 #include <queue>
 #include <map>
 #include <set>
+#include <iomanip>
+#include <algorithm>
 
 using namespace std;
 
-class Graph {
+class CityRoutePlanner {
 private:
+    // adjacency list: vertex -> list of (neighbor, fuel_consumption)
     map<int, vector<pair<int, int>>> adj;
+    // map vertex ID to descriptive name
+    map<int, string> locationName;
 
 public:
-    void addEdge(int u, int v, int w) {
-        adj[u].push_back({v, w});
-        adj[v].push_back({u, w});
+    void addEdge(int u, int v, int fuel) {
+        adj[u].push_back({v, fuel});
+        adj[v].push_back({u, fuel});
     }
 
-    void displayAdj() {
+    void setLocationName(int id, const string& name) {
+        locationName[id] = name;
+    }
+
+    void displayNetwork() {
+        cout << "\n=== CITY ROUTE NETWORK (Fuel consumption in liters) ===\n";
         for (const auto& entry : adj) {
-            cout << entry.first << " -->";
-            for (const auto& p : entry.second) {
-                cout << " (" << p.first << ", " << p.second << ")";
+            int v = entry.first;
+            cout << locationName[v] << " (ID " << v << ") connects to:\n";
+            for (const auto& neighbor : entry.second) {
+                int n = neighbor.first;
+                int fuel = neighbor.second;
+                cout << "  → " << locationName[n] << " (ID " << n << ") - Fuel: " << fuel << " L\n";
             }
             cout << endl;
         }
     }
 
-    // Iterative DFS (proper stack‑based, no artificial reordering)
-    vector<int> dfs(int start) {
+    // DFS: explore all possible routes, accumulating fuel cost
+    void dfsWithFuel(int start) {
         set<int> visited;
-        stack<int> st;
+        stack<pair<int, int>> st; // (vertex, accumulated fuel from start)
         vector<int> order;
-        st.push(start);
+        map<int, int> fuelFromStart;
+
+        st.push({start, 0});
+        cout << "\n=== ROUTE EXPLORATION (DFS) from " << locationName[start] << " ===\n";
+        cout << "Purpose: Find all possible driving routes and their fuel costs.\n\n";
+
         while (!st.empty()) {
-            int v = st.top();
+            auto [v, accFuel] = st.top();
             st.pop();
             if (visited.find(v) == visited.end()) {
                 visited.insert(v);
                 order.push_back(v);
-                // Push neighbors in the order they appear in the adjacency list.
-                // The last one pushed will be visited first (LIFO).
-                for (const auto& neighbor : adj[v]) {
-                    int n = neighbor.first;
+                fuelFromStart[v] = accFuel;
+                cout << "Arrive at " << locationName[v] << " (ID " << v << ")";
+                if (accFuel > 0)
+                    cout << " - Total fuel used so far: " << accFuel << " L";
+                cout << endl;
+
+                // Push neighbors in reverse order to maintain natural order in output
+                vector<pair<int, int>> neighbors = adj[v];
+                for (auto it = neighbors.rbegin(); it != neighbors.rend(); ++it) {
+                    int n = it->first;
+                    int fuel = it->second;
                     if (visited.find(n) == visited.end()) {
-                        st.push(n);
+                        st.push({n, accFuel + fuel});
+                        cout << "  → Possible drive to " << locationName[n] << " (fuel " << fuel << " L)\n";
                     }
                 }
+                if (neighbors.empty() || (v != start && neighbors.size() == 1 && visited.count(neighbors[0].first)))
+                    cout << "  (Dead end reached)\n";
             }
         }
-        return order;
+        cout << "\nDFS traversal order: ";
+        for (int v : order) cout << locationName[v] << " ";
+        cout << endl;
     }
 
-    // BFS (proper queue‑based)
-    vector<int> bfs(int start) {
+    // BFS: find the route with the fewest road segments (ignoring fuel), then compute its fuel cost
+    void bfsMinHops(int start) {
         set<int> visited;
         queue<int> q;
-        vector<int> order;
+        map<int, int> parent;   // to reconstruct path
+        map<int, int> hops;     // number of hops from start
+
         visited.insert(start);
         q.push(start);
+        hops[start] = 0;
+        parent[start] = -1;
+
+        cout << "\n=== SHORTEST ROUTE BY ROAD SEGMENTS (BFS) from " << locationName[start] << " ===\n";
+        cout << "Purpose: Find the route with the fewest road segments, then compute its fuel cost.\n\n";
+
         while (!q.empty()) {
             int v = q.front();
             q.pop();
-            order.push_back(v);
+            cout << "Checking " << locationName[v] << " (ID " << v << ") - Hop distance: " << hops[v] << "\n";
             for (const auto& neighbor : adj[v]) {
                 int n = neighbor.first;
                 if (visited.find(n) == visited.end()) {
                     visited.insert(n);
+                    parent[n] = v;
+                    hops[n] = hops[v] + 1;
                     q.push(n);
+                    cout << "  → " << locationName[n] << " reachable in " << hops[n] << " segment(s)\n";
                 }
             }
         }
-        return order;
+
+        // Show the hop‑distance and actual fuel consumption for each destination
+        cout << "\n=== ROUTE SUMMARY (Minimal hops from " << locationName[start] << ") ===\n";
+        for (const auto& entry : adj) {
+            int dest = entry.first;
+            if (dest == start) continue;
+            // reconstruct path
+            vector<int> path;
+            int cur = dest;
+            while (cur != -1) {
+                path.push_back(cur);
+                cur = parent[cur];
+            }
+            reverse(path.begin(), path.end());
+            // compute total fuel along the path
+            int totalFuel = 0;
+            for (size_t i = 0; i < path.size() - 1; ++i) {
+                int u = path[i], v = path[i+1];
+                for (const auto& edge : adj[u]) {
+                    if (edge.first == v) {
+                        totalFuel += edge.second;
+                        break;
+                    }
+                }
+            }
+            cout << "To " << locationName[dest] << " (ID " << dest << "): "
+                 << hops[dest] << " segment(s), total fuel = " << totalFuel << " L, path: ";
+            for (int node : path) cout << locationName[node] << " ";
+            cout << endl;
+        }
     }
 };
 
 int main() {
-    Graph g;
+    CityRoutePlanner planner;
 
-    //step 2: Delete vertices 3 and 6 from the original graph.
-    //add six new vertices: 7, 8, 9, 10, 11, 12.
-    //change all edge weights.
-    //edges are added in an order that gives a clear adjacency list.
+    // ---------- Build the exact graph from Step 2 ----------
+    // vertices: 0,1,2,4,5,7,8,9,10,11,12   (3 and 6 deleted, 6 new added)
+    // edges with fuel weights (liters)
+    planner.addEdge(0, 1, 5);
+    planner.addEdge(0, 2, 10);
+    planner.addEdge(0, 4, 15);
+    planner.addEdge(1, 2, 3);
+    planner.addEdge(1, 5, 8);
+    planner.addEdge(2, 7, 12);
+    planner.addEdge(2, 8, 6);
+    planner.addEdge(4, 5, 4);
+    planner.addEdge(4, 9, 7);
+    planner.addEdge(5, 7, 9);
+    planner.addEdge(5, 8, 11);
+    planner.addEdge(7, 8, 2);
+    planner.addEdge(7, 10, 13);
+    planner.addEdge(8, 11, 14);
+    planner.addEdge(9, 10, 1);
+    planner.addEdge(10, 11, 16);
+    planner.addEdge(11, 12, 17);
+    planner.addEdge(9, 12, 18);
 
-    //connect vertex 0
-    g.addEdge(0, 1, 5);
-    g.addEdge(0, 2, 10);
-    g.addEdge(0, 4, 15);
+    // Assign descriptive names (city landmarks)
+    planner.setLocationName(0, "City Center");
+    planner.setLocationName(1, "North District");
+    planner.setLocationName(2, "East District");
+    planner.setLocationName(4, "South District");
+    planner.setLocationName(5, "West District");
+    planner.setLocationName(7, "International Airport");
+    planner.setLocationName(8, "Central Train Station");
+    planner.setLocationName(9, "City Stadium");
+    planner.setLocationName(10, "Mega Mall");
+    planner.setLocationName(11, "General Hospital");
+    planner.setLocationName(12, "University Campus");
 
-    //connect vertex 1
-    g.addEdge(1, 2, 3);
-    g.addEdge(1, 5, 8);
+    // Display the network
+    planner.displayNetwork();
 
-    //connect vertex 2
-    g.addEdge(2, 7, 12);
-    g.addEdge(2, 8, 6);
+    // Run DFS from City Center (vertex 0) – explore all possible routes with fuel tracking
+    planner.dfsWithFuel(0);
 
-    //connect vertex 4
-    g.addEdge(4, 5, 4);
-    g.addEdge(4, 9, 7);
-
-    //connect vertex 5
-    g.addEdge(5, 7, 9);
-    g.addEdge(5, 8, 11);
-
-    //connect new vertices among themselves
-    g.addEdge(7, 8, 2);
-    g.addEdge(7, 10, 13);
-    g.addEdge(8, 11, 14);
-    g.addEdge(9, 10, 1);
-    g.addEdge(10, 11, 16);
-    g.addEdge(11, 12, 17);
-    g.addEdge(9, 12, 18);  //extra connection to keep everything reachable
-
-    cout << "Graph's adjacency list:" << endl;
-    g.displayAdj();
-
-    cout << "\nDFS starting from vertex 0:" << endl;
-    vector<int> dfs_order = g.dfs(0);
-    for (int v : dfs_order) cout << v << " ";
-    cout << endl;
-
-    cout << "BFS starting from vertex 0:" << endl;
-    vector<int> bfs_order = g.bfs(0);
-    for (int v : bfs_order) cout << v << " ";
-    cout << endl;
+    // Run BFS from City Center – find routes with fewest road segments, then compute fuel cost
+    planner.bfsMinHops(0);
 
     return 0;
 }
